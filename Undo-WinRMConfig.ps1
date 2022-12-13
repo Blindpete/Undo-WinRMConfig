@@ -45,10 +45,9 @@ Param (
   [switch]$Version
 )
 
-$ThisScriptVersion = '1.2.0'
+$ThisScriptVersion = '1.2.1'
 
-If ($version)
-{  
+If ($version) {  
   Write-Host "$ThisScriptVersion"
   Exit 0
 }
@@ -58,13 +57,13 @@ Function Setup-Undo {
   Write-Host "`r`n`r`nUndo-WinRMConfig Version $ThisScriptVersion`r`n`r`n"
 
   #This has to work for Win7 (no get-ciminstance) and Nano (no get-wmiobject) - each of which specially construct win32_operatingsystem.version to handle before and after Windows 10 version numbers (which are in different registry keys)
-  If ($psversiontable.psversion.major -lt 3)
-  { $OSMajorMinorVersionString = @(([version](Get-WMIObject Win32_OperatingSystem).version).major,([version](Get-WMIObject Win32_OperatingSystem).version).minor) -join '.' }
-  Else 
-  { $OSMajorMinorVersionString = @(([version](Get-CIMInstance Win32_OperatingSystem).version).major,([version](Get-CIMInstance Win32_OperatingSystem).version).minor) -join '.' }
+  If ($psversiontable.psversion.major -lt 3) {
+    $OSMajorMinorVersionString = @(([version](Get-WMIObject Win32_OperatingSystem).version).major, ([version](Get-WMIObject Win32_OperatingSystem).version).minor) -join '.' 
+  } Else {
+    $OSMajorMinorVersionString = @(([version](Get-CimInstance Win32_OperatingSystem).version).major, ([version](Get-CimInstance Win32_OperatingSystem).version).minor) -join '.' 
+  }
 
-  If (!(Test-Path "variable:Pristine-WSMan-${OSMajorMinorVersionString}.reg"))
-  { 
+  If (!(Test-Path "variable:Pristine-WSMan-${OSMajorMinorVersionString}.reg")) { 
     Throw "Undo-WinRMConfig does not have Pristine WSMan .REG file for your OS version $OSMajorMinorVersionString, if you would like to create and contribute one, please see: "
     Exit 5
   }
@@ -111,14 +110,11 @@ Function Setup-Undo {
   }
 '@
 
-  If ($RunImmediately)
-  {
+  If ($RunImmediately) {
     Write-Output 'Undoing WinRM Config Right Now (do NOT execute this over remoting or this code will not complete)...'  
     Invoke-Command -ScriptBlock [Scriptblock]::Create($UndoWinRMScript)
     exit 0
-  }
-  else 
-  {
+  } else {
     Write-Output 'Undoing WinRM Config On Next Shutdown'
   }
 
@@ -126,11 +122,11 @@ Function Setup-Undo {
   $psScriptsFile = "$env:windir\System32\GroupPolicy\Machine\Scripts\psscripts.ini"
   $Key1 = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Group Policy\Scripts\Shutdown\0'
   $Key2 = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Group Policy\State\Machine\Scripts\Shutdown\0'
-  $keys = @($key1,$key2)
+  $keys = @($key1, $key2)
   $scriptpath = "$env:windir\System32\GroupPolicy\Machine\Scripts\Shutdown\Undo-WinRMConfig.ps1"
-  $scriptfilename = (Split-Path -leaf $scriptpath)
-  $ScriptFolder = (Split-Path -parent $scriptpath)
-  $FileContents = Get-Variable -name "Pristine-WSMan-${OSMajorMinorVersionString}.reg" -ValueOnly
+  $scriptfilename = (Split-Path -Leaf $scriptpath)
+  $ScriptFolder = (Split-Path -Parent $scriptpath)
+  $FileContents = Get-Variable -Name "Pristine-WSMan-${OSMajorMinorVersionString}.reg" -ValueOnly
   New-Item -ItemType Directory -Force -Path $ScriptFolder
   Set-Content -Path "$ScriptFolder\Pristine-WSMan-${OSMajorMinorVersionString}.reg" -Value $FileContents
 
@@ -147,11 +143,10 @@ Function Setup-Undo {
   }
 "@
 
-  $selfdeletescript =[Scriptblock]::Create($selfdeletescript)
+  $selfdeletescript = [Scriptblock]::Create($selfdeletescript)
 
-  If ($RemoveShutdownScriptConfig)
-  {
-    Write-Host "Removing previously setup shutdown script"
+  If ($RemoveShutdownScriptConfig) {
+    Write-Host 'Removing previously setup shutdown script'
     Invoke-Command -ScriptBlock $selfdeletescript
     exit $?
   }
@@ -163,31 +158,34 @@ Function Setup-Undo {
   Write-Host '*******************'
   Write-Host "$UndoWinRMScript"
   Write-Host '*******************`r`n`r`n'
-  If (!(Test-Path $ScriptFolder)) {New-Item $ScriptFolder -type Directory -force | Out-null}
-  Set-Content -path $scriptpath -value $UndoWinRMScript
+  If (!(Test-Path $ScriptFolder)) {
+    New-Item $ScriptFolder -type Directory -Force | Out-Null
+  }
+  Set-Content -Path $scriptpath -Value $UndoWinRMScript
 
-  Foreach ($Key in $keys)
-  {
+  Foreach ($Key in $keys) {
     Write-Host "Creating $Key"
-    New-Item -Path $key -Force | out-null
-    New-ItemProperty -Path $key -Name GPO-ID -Value LocalGPO -Force | out-null
-    New-ItemProperty -Path $key -Name SOM-ID -Value Local -Force | out-null
-    New-ItemProperty -Path $key -Name FileSysPath -Value "$env:windir\System32\GroupPolicy\Machine" -Force | out-null
-    New-ItemProperty -Path $key -Name DisplayName -Value "Local Group Policy" -Force | out-null
-    New-ItemProperty -Path $key -Name GPOName -Value "Local Group Policy" -Force | out-null
-    New-ItemProperty -Path $key -Name PSScriptOrder -Value 1 -PropertyType "DWord" -Force | out-null
+    New-Item -Path $key -Force | Out-Null
+    New-ItemProperty -Path $key -Name GPO-ID -Value LocalGPO -Force | Out-Null
+    New-ItemProperty -Path $key -Name SOM-ID -Value Local -Force | Out-Null
+    New-ItemProperty -Path $key -Name FileSysPath -Value "$env:windir\System32\GroupPolicy\Machine" -Force | Out-Null
+    New-ItemProperty -Path $key -Name DisplayName -Value 'Local Group Policy' -Force | Out-Null
+    New-ItemProperty -Path $key -Name GPOName -Value 'Local Group Policy' -Force | Out-Null
+    New-ItemProperty -Path $key -Name PSScriptOrder -Value 1 -PropertyType 'DWord' -Force | Out-Null
 
     $key = "$key\0"
-    New-Item -Path $key -Force | out-null
-    New-ItemProperty -Path $key -Name "Script" -Value $scriptfilename -Force | out-null
-    New-ItemProperty -Path $key -Name "Parameters" -Value $parameters -Force | out-null
-    New-ItemProperty -Path $key -Name "IsPowershell" -Value 1 -PropertyType "DWord" -Force | out-null
-    New-ItemProperty -Path $key -Name "ExecTime" -Value 0 -PropertyType "QWord" -Force | out-null
+    New-Item -Path $key -Force | Out-Null
+    New-ItemProperty -Path $key -Name 'Script' -Value $scriptfilename -Force | Out-Null
+    New-ItemProperty -Path $key -Name 'Parameters' -Value $parameters -Force | Out-Null
+    New-ItemProperty -Path $key -Name 'IsPowershell' -Value 1 -PropertyType 'DWord' -Force | Out-Null
+    New-ItemProperty -Path $key -Name 'ExecTime' -Value 0 -PropertyType 'QWord' -Force | Out-Null
   }
 
   Write-Host "Updating $psScriptsFile"
-  If (!(Test-Path $psScriptsFile)) {New-Item $psScriptsFile -type file -force}
-  "[Shutdown]" | Out-File $psScriptsFile
+  If (!(Test-Path $psScriptsFile)) {
+    New-Item $psScriptsFile -type file -Force
+  }
+  '[Shutdown]' | Out-File $psScriptsFile
   "0CmdLine=$scriptfilename" | Out-File $psScriptsFile -Append
   "0Parameters=$parameters" | Out-File $psScriptsFile -Append
 
@@ -344,5 +342,7 @@ Windows Registry Editor Version 5.00
 [HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\WSMAN\WinRS\CustomRemoteShell]
 
 '@
+
+
 
 Setup-Undo
